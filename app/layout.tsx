@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { ModalProvider } from "@/components/providers/ModalProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "ChillCord",
-  description: "Discord аналог с русским интерфейсом",
+  description: "Создан в связи с блокировкой дискорда в России",
 };
 
 export default function RootLayout({
@@ -16,9 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <ModalProvider />
+          {children}
+        </Providers>
       </body>
     </html>
   );

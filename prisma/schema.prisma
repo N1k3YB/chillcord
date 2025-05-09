@@ -25,6 +25,12 @@ model User {
 
   accounts Account[]
   sessions Session[]
+  
+  // Связи с каналами, сообщениями и т.д.
+  channelsOwned      Channel[]         @relation("ChannelOwner")
+  channelMemberships ChannelMember[]
+  messages           Message[]
+  invitesCreated     ChannelInvite[]   @relation("InviteCreator")
 }
 
 model Account {
@@ -60,4 +66,95 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Модель для каналов
+model Channel {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Связь с владельцем канала
+  ownerId     String
+  owner       User        @relation("ChannelOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // Связи с чатами, участниками и приглашениями
+  chats       Chat[]
+  members     ChannelMember[]
+  invites     ChannelInvite[]
+}
+
+// Модель для участников канала
+model ChannelMember {
+  id               String   @id @default(cuid())
+  role             String   @default("MEMBER") // MEMBER, ADMIN
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Права администратора (только если role = "ADMIN")
+  canDeleteChannel Boolean  @default(false) // Право на удаление канала
+  canManageRoles   Boolean  @default(false) // Право на управление ролями участников
+  canRemoveMembers Boolean  @default(false) // Право на удаление участников
+  canEditChannel   Boolean  @default(false) // Право на редактирование настроек канала
+  
+  // Связи с пользователем и каналом
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, channelId])
+}
+
+// Модель для чатов внутри канала
+model Chat {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  type        String    @default("TEXT") // TEXT, VOICE, etc.
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Связь с каналом
+  channelId   String
+  channel     Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  // Связь с сообщениями
+  messages    Message[]
+}
+
+// Модель для сообщений в чате
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Связи с пользователем и чатом
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+// Модель для приглашений в канал
+model ChannelInvite {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  expiresAt DateTime?
+  maxUses   Int?
+  uses      Int      @default(0)
+  createdAt DateTime @default(now())
+  
+  // Связи с создателем и каналом
+  creatorId String
+  creator   User     @relation("InviteCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
 }

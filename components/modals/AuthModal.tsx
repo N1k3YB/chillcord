@@ -1,15 +1,26 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
 import { toast } from "react-hot-toast";
 
 export default function AuthModal() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams?.get("callbackUrl");
+  
   const [isLoading, setIsLoading] = useState(false);
   const [variant, setVariant] = useState<"LOGIN" | "REGISTER">("LOGIN");
+  const [showInviteMessage, setShowInviteMessage] = useState(false);
+  
+  // Проверяем, содержит ли URL параметр callbackUrl с приглашением
+  useEffect(() => {
+    if (callbackUrl && callbackUrl.includes("/invite/")) {
+      setShowInviteMessage(true);
+    }
+  }, [callbackUrl]);
 
   const toggleVariant = useCallback(() => {
     setVariant((currentVariant) => 
@@ -40,7 +51,24 @@ export default function AuthModal() {
         },
         body: JSON.stringify(data),
       })
-        .then(() => signIn("credentials", data))
+        .then(() => signIn("credentials", {
+          ...data,
+          redirect: false
+        }))
+        .then((callback) => {
+          if (callback?.ok && !callback?.error) {
+            toast.success("Регистрация успешна!");
+            
+            // Перенаправляем на страницу приглашения или в чаты
+            if (callbackUrl) {
+              router.push(callbackUrl);
+            } else {
+              router.push("/chats");
+            }
+          } else {
+            toast.error("Что-то пошло не так!");
+          }
+        })
         .catch(() => toast.error("Что-то пошло не так!"))
         .finally(() => setIsLoading(false));
     }
@@ -57,7 +85,13 @@ export default function AuthModal() {
 
           if (callback?.ok && !callback?.error) {
             toast.success("Вход выполнен!");
-            router.push("/chats");
+            
+            // Перенаправляем на страницу приглашения или в чаты
+            if (callbackUrl) {
+              router.push(callbackUrl);
+            } else {
+              router.push("/chats");
+            }
           }
         })
         .finally(() => setIsLoading(false));
@@ -91,6 +125,15 @@ export default function AuthModal() {
           <h2 className="text-center text-2xl font-bold leading-9 tracking-tight text-white">
             {variant === "LOGIN" ? "Вход в аккаунт" : "Регистрация аккаунта"}
           </h2>
+          
+          {/* Сообщение о приглашении */}
+          {showInviteMessage && (
+            <div className="mt-4 p-3 bg-indigo-900/50 rounded-md border border-indigo-700">
+              <p className="text-sm text-center text-white">
+                Для присоединения к каналу необходимо войти в аккаунт или зарегистрироваться
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">

@@ -4,9 +4,11 @@ import { User, Bell, Eye, Brush, Settings, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useLastRouteStore } from "@/lib/stores/last-route-store";
 
 export const ProfileSidebar = () => {
   const pathname = usePathname();
+  const { lastChatRoute } = useLastRouteStore();
 
   const routes = [
     {
@@ -63,7 +65,7 @@ export const ProfileSidebar = () => {
       </div>
       <div className="mt-auto px-2 pb-3 pt-2 border-t border-zinc-700">
         <Link
-          href="/chats"
+          href={lastChatRoute}
           className="flex items-center gap-x-2 text-zinc-300 text-sm font-medium px-3 py-2 rounded-md transition-colors hover:bg-zinc-700/30 hover:text-white"
         >
           <ArrowLeft className="h-5 w-5" />
