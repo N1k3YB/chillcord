@@ -57,7 +57,7 @@ export default function AuthModal() {
 
           if (callback?.ok && !callback?.error) {
             toast.success("Вход выполнен!");
-            router.push("/dashboard");
+            router.push("/chats");
           }
         })
         .finally(() => setIsLoading(false));

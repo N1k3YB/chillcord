@@ -1,11 +1,11 @@
 "use client";
 
-import { ChatLayout } from "@/components/layout/ChatLayout";
+import { ProfileLayout } from "@/components/profile/ProfileLayout";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export default function DashboardLayout({
+export default function ProfilePageLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -27,5 +27,5 @@ export default function DashboardLayout({
     );
   }
 
-  return <ChatLayout>{children}</ChatLayout>;
+  return <ProfileLayout>{children}</ProfileLayout>;
 } 

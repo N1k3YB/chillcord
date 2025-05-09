@@ -10,7 +10,7 @@ export const Sidebar = () => {
   const router = useRouter();
 
   const handleProfileClick = () => {
-    router.push("/dashboard/profile");
+    router.push("/profile");
   };
 
   return (
@@ -19,7 +19,7 @@ export const Sidebar = () => {
         {/* Логотип */}
         <div
           className="h-12 w-12 rounded-full bg-zinc-700 flex items-center justify-center cursor-pointer hover:bg-indigo-500 transition"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push("/chats")}
         >
           <span className="text-white text-xl font-bold">CC</span>
         </div>

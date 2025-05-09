@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 
-export default function DashboardPage() {
+export default function ChatsPage() {
   const { data: session } = useSession();
 
   return (
@@ -11,7 +11,7 @@ export default function DashboardPage() {
         Добро пожаловать, {session?.user?.name || "пользователь"}!
       </h1>
       <p className="text-xl text-zinc-400 text-center max-w-md">
-        Это ваша главная страница ChillCord. Здесь будут отображаться ваши каналы и сообщения.
+        Это ваша страница чатов ChillCord. Здесь будут отображаться ваши каналы и сообщения.
       </p>
     </div>
   );
