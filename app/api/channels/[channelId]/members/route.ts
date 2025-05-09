@@ -45,7 +45,7 @@ export async function GET(
       return new NextResponse("Доступ запрещен. Только администратор может просматривать участников канала", { status: 403 });
     }
     
-    // Получаем список участников
+    // Получаем информацию о всех членах канала, включая пользовательские данные
     const members = await prisma.channelMember.findMany({
       where: {
         channelId,
@@ -55,14 +55,24 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            email: true,
             image: true,
           },
         },
       },
     });
     
-    return NextResponse.json(members);
+    // Добавляем информацию о правах каждого члена
+    const formattedMembers = members.map(member => ({
+      ...member,
+      permissions: {
+        canDeleteChannel: member.canDeleteChannel || false,
+        canManageRoles: member.canManageRoles || false,
+        canRemoveMembers: member.canRemoveMembers || false,
+        canEditChannel: member.canEditChannel || false
+      }
+    }));
+    
+    return NextResponse.json(formattedMembers);
   } catch (error) {
     console.error("[CHANNEL_MEMBERS_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });

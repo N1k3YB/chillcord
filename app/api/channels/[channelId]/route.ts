@@ -182,20 +182,6 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 });
     }
     
-    // Проверяем, является ли пользователь администратором канала
-    const membership = await prisma.channelMember.findUnique({
-      where: {
-        userId_channelId: {
-          userId: user.id,
-          channelId,
-        },
-      },
-    });
-    
-    if (!membership || membership.role !== "ADMIN") {
-      return new NextResponse("Доступ запрещен. Только администратор может удалить канал", { status: 403 });
-    }
-    
     // Получаем информацию о канале
     const channel = await prisma.channel.findUnique({
       where: {
@@ -209,10 +195,10 @@ export async function DELETE(
     
     // Проверяем, является ли пользователь владельцем канала или имеет разрешение на удаление канала
     const isOwner = channel.ownerId === user.id;
-    const canDelete = (membership as any).canDeleteChannel === true;
     
-    if (!isOwner && !canDelete) {
-      return new NextResponse("Доступ запрещен. Только владелец канала или администратор с соответствующими правами может удалить его", { status: 403 });
+    // Только владелец канала может его удалить
+    if (!isOwner) {
+      return new NextResponse("Доступ запрещен. Только владелец канала может удалить его", { status: 403 });
     }
     
     // Удаляем канал (все связанные записи будут удалены каскадно согласно схеме)

@@ -34,6 +34,7 @@ export const ServerSidebar = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLeavingChannel, setIsLeavingChannel] = useState(false);
   const [blockedChannelIds, setBlockedChannelIds] = useState<Set<string>>(new Set());
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
   
   const activeChannelId = params?.channelId as string;
   const activeChatId = params?.chatId as string;
@@ -104,25 +105,59 @@ export const ServerSidebar = () => {
     fetchActiveChannelEffect();
   }, [activeChannelId, router, blockedChannelIds]);
   
-  // Загружаем чаты для активного канала
+  // Эффект для загрузки чатов канала
   useEffect(() => {
-    const fetchChannelChats = async () => {
-      if (!activeChannelId || !activeChannel || blockedChannelIds.has(activeChannelId)) {
-        setActiveChannelChats([]);
-        return;
-      }
-      
+    if (!activeChannelId) return;
+    
+    const fetchChats = async () => {
       try {
+        // Если канал заблокирован - не делаем запрос
+        if (blockedChannelIds.has(activeChannelId)) {
+          return;
+        }
+        
+        setIsLoadingChats(true);
         const response = await axios.get(`/api/channels/${activeChannelId}/chats`);
+        
+        // Добавляем чаты в состояние
         setActiveChannelChats(response.data);
-      } catch (error) {
-        console.error("Ошибка при загрузке чатов канала:", error);
-        setActiveChannelChats([]);
+      } catch (error: any) {
+        console.error("Ошибка при загрузке чатов:", error);
+        
+        // Если получили 403 (доступ запрещен) - блокируем канал
+        if (error.response?.status === 403) {
+          console.log(`Доступ к каналу ${activeChannelId} запрещен, блокируем...`);
+          setBlockedChannelIds(prev => new Set([...prev, activeChannelId]));
+          setActiveChannel(null);
+          setActiveChannelChats([]);
+          router.push('/chats');
+        }
+      } finally {
+        setIsLoadingChats(false);
       }
     };
     
-    fetchChannelChats();
-  }, [activeChannelId, activeChannel, blockedChannelIds]);
+    fetchChats();
+    
+    // Обработчик события создания нового чата
+    const handleChatCreated = (event: CustomEvent<{ channelId: string, chat: any }>) => {
+      // Проверяем, относится ли чат к текущему активному каналу
+      if (event.detail.channelId === activeChannelId) {
+        console.log("Добавляем новый чат в список:", event.detail.chat);
+        // Добавляем новый чат в список чатов
+        setActiveChannelChats(prev => [...prev, event.detail.chat]);
+      }
+    };
+    
+    // Регистрируем обработчик события
+    window.addEventListener("chat-created" as any, handleChatCreated);
+    
+    // Очищаем обработчик при размонтировании компонента
+    return () => {
+      window.removeEventListener("chat-created" as any, handleChatCreated);
+    };
+    
+  }, [activeChannelId, blockedChannelIds, router]);
   
   const handleCreateChannel = () => {
     // Вызываем глобальное событие для открытия модального окна

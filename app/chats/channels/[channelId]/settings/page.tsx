@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { Settings, Trash2, Users, Globe, ArrowLeft, Shield, UserPlus, Crown, Copy, Check } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { ChannelPermissionsModal } from "@/app/components/modals/ChannelPermissionsModal";
+import { RoleMemberModal } from "@/app/components/modals/RoleMemberModal";
 
 interface Channel {
   id: string;
@@ -53,9 +53,28 @@ export default function ChannelSettings() {
   const [isPublic, setIsPublic] = useState(false);
   
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
-  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [showRoleMemberModal, setShowRoleMemberModal] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<any>(null);
+  
+  // Функция для получения списка участников
+  const fetchMembers = async () => {
+    if (!channelId || !channel || channel.role !== "ADMIN") return;
+    
+    try {
+      setIsLoadingMembers(true);
+      const response = await axios.get(`/api/channels/${channelId}/members`);
+      setMembers(response.data);
+      
+      // Получаем текущего пользователя для проверки прав
+      const userResponse = await axios.get('/api/auth/me');
+      setCurrentUser(userResponse.data);
+    } catch (error) {
+      console.error("Ошибка при загрузке участников:", error);
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
   
   useEffect(() => {
     const fetchChannel = async () => {
@@ -66,6 +85,18 @@ export default function ChannelSettings() {
         setName(response.data.name);
         setDescription(response.data.description || "");
         setIsPublic(response.data.isPublic);
+        
+        // Если пользователь администратор, сразу загружаем или создаём ссылку-приглашение
+        if (response.data.role === "ADMIN") {
+          try {
+            const inviteResponse = await axios.post(`/api/channels/${channelId}/invites`, {});
+            const inviteCode = inviteResponse.data.code;
+            const inviteUrl = `${window.location.origin}/invite/${inviteCode}`;
+            setInviteLink(inviteUrl);
+          } catch (inviteError) {
+            console.error("Ошибка при загрузке ссылки-приглашения:", inviteError);
+          }
+        }
       } catch (error) {
         console.error("Ошибка при загрузке канала:", error);
       } finally {
@@ -79,24 +110,6 @@ export default function ChannelSettings() {
   }, [channelId]);
   
   useEffect(() => {
-    const fetchMembers = async () => {
-      if (!channelId || !channel || channel.role !== "ADMIN") return;
-      
-      try {
-        setIsLoadingMembers(true);
-        const response = await axios.get(`/api/channels/${channelId}/members`);
-        setMembers(response.data);
-        
-        // Получаем текущего пользователя для проверки прав
-        const userResponse = await axios.get('/api/auth/me');
-        setCurrentUser(userResponse.data);
-      } catch (error) {
-        console.error("Ошибка при загрузке участников:", error);
-      } finally {
-        setIsLoadingMembers(false);
-      }
-    };
-    
     fetchMembers();
   }, [channelId, channel]);
   
@@ -154,54 +167,6 @@ export default function ChannelSettings() {
     }
   };
   
-  const handleUpdateRole = async (memberId: string, newRole: string) => {
-    if (!channelId || !channel || channel.role !== "ADMIN") return;
-    
-    try {
-      setIsUpdatingRole(memberId);
-      
-      await axios.patch(`/api/channels/${channelId}/members/${memberId}`, {
-        role: newRole
-      });
-      
-      // Обновляем список участников
-      const updatedMembers = members.map(member => {
-        if (member.id === memberId) {
-          return { ...member, role: newRole };
-        }
-        return member;
-      });
-      
-      setMembers(updatedMembers);
-    } catch (error) {
-      console.error("Ошибка при обновлении роли:", error);
-    } finally {
-      setIsUpdatingRole(null);
-    }
-  };
-  
-  const handleRemoveMember = async (memberId: string) => {
-    if (!channelId || !channel || channel.role !== "ADMIN") return;
-    
-    if (!confirm("Вы уверены, что хотите удалить этого участника из канала?")) {
-      return;
-    }
-    
-    try {
-      setIsUpdatingRole(memberId);
-      
-      await axios.delete(`/api/channels/${channelId}/members/${memberId}`);
-      
-      // Удаляем участника из списка
-      const updatedMembers = members.filter(member => member.id !== memberId);
-      setMembers(updatedMembers);
-    } catch (error) {
-      console.error("Ошибка при удалении участника:", error);
-    } finally {
-      setIsUpdatingRole(null);
-    }
-  };
-  
   const handleNavigateBack = () => {
     router.push(`/chats/channels/${channelId}`);
   };
@@ -244,15 +209,15 @@ export default function ChannelSettings() {
     }
   };
   
-  const handleManagePermissions = (memberId: string) => {
+  const handleManageRoleMember = (memberId: string) => {
     setSelectedMember(memberId);
-    setShowPermissionsModal(true);
+    setShowRoleMemberModal(true);
   };
   
-  const handleClosePermissionsModal = () => {
-    setShowPermissionsModal(false);
+  const handleCloseRoleMemberModal = () => {
+    setShowRoleMemberModal(false);
     setSelectedMember(null);
-    // Обновляем список участников после изменения разрешений
+    // Обновляем список участников после изменения роли
     fetchMembers();
   };
   
@@ -416,65 +381,20 @@ export default function ChannelSettings() {
                       
                       <div className="flex gap-2">
                         {!isChannelOwner(member.user.id) && (
-                          <>
-                            {member.role !== "ADMIN" && (
-                              <button
-                                onClick={() => handleUpdateRole(member.id, "ADMIN")}
-                                disabled={isUpdatingRole === member.id}
-                                className="p-2 bg-zinc-600 hover:bg-zinc-500 text-white rounded-md transition-colors text-xs"
-                                title="Сделать администратором"
-                              >
-                                {isUpdatingRole === member.id ? (
-                                  <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-                                ) : (
-                                  <div className="flex items-center">
-                                    <Shield className="h-4 w-4" />
-                                  </div>
-                                )}
-                              </button>
-                            )}
-                            
-                            {member.role === "ADMIN" && (
-                              <button
-                                onClick={() => handleUpdateRole(member.id, "MEMBER")}
-                                disabled={isUpdatingRole === member.id}
-                                className="p-2 bg-zinc-600 hover:bg-zinc-500 text-white rounded-md transition-colors text-xs"
-                                title="Снять администратора"
-                              >
-                                {isUpdatingRole === member.id ? (
-                                  <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-                                ) : (
-                                  <div className="flex items-center">
-                                    <Users className="h-4 w-4" />
-                                  </div>
-                                )}
-                              </button>
-                            )}
-                            
-                            <button
-                              onClick={() => handleRemoveMember(member.id)}
-                              disabled={isUpdatingRole === member.id}
-                              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-xs"
-                              title="Удалить участника"
-                            >
-                              {isUpdatingRole === member.id ? (
-                                <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
-                              ) : (
-                                <div className="flex items-center">
-                                  <Trash2 className="h-4 w-4" />
-                                </div>
-                              )}
-                            </button>
-                          </>
-                        )}
-                        {/* Кнопка управления разрешениями (только для админов) */}
-                        {member.role === "ADMIN" && channel?.ownerId === currentUser?.id && (
                           <button
-                            onClick={() => handleManagePermissions(member.id)}
-                            className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-                            title="Настроить разрешения"
+                            onClick={() => handleManageRoleMember(member.id)}
+                            disabled={isUpdatingRole === member.id}
+                            className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors text-xs flex items-center"
+                            title="Управление ролью"
                           >
-                            <Shield className="h-4 w-4" />
+                            {isUpdatingRole === member.id ? (
+                              <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
+                            ) : (
+                              <>
+                                <Shield className="h-4 w-4 mr-1" />
+                                <span>Управление</span>
+                              </>
+                            )}
                           </button>
                         )}
                       </div>
@@ -543,23 +463,32 @@ export default function ChannelSettings() {
               Это действие невозможно отменить. Все чаты, сообщения и данные канала будут удалены навсегда.
             </p>
             
-            <button
-              type="button"
-              onClick={handleDeleteChannel}
-              disabled={isDeleting}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isDeleting ? "Удаление..." : "Удалить канал"}
-            </button>
+            {/* Показываем кнопку удаления только владельцу канала */}
+            {channel?.ownerId === currentUser?.id ? (
+              <button
+                type="button"
+                onClick={handleDeleteChannel}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? "Удаление..." : "Удалить канал"}
+              </button>
+            ) : (
+              <p className="text-zinc-500 italic text-sm">
+                Только владелец канала может удалить канал.
+              </p>
+            )}
           </div>
         </div>
       </div>
-      {/* Модальное окно управления разрешениями */}
-      {showPermissionsModal && selectedMember && (
-        <ChannelPermissionsModal
+      {/* Модальное окно управления ролью */}
+      {showRoleMemberModal && selectedMember && (
+        <RoleMemberModal
           memberId={selectedMember}
           channelId={channelId as string}
-          isAdmin={true}
+          memberName={members.find(member => member.id === selectedMember)?.user.name || "Участник"}
+          isAdmin={members.find(member => member.id === selectedMember)?.role === "ADMIN"}
+          isOwner={channel?.ownerId === currentUser?.id}
           currentPermissions={
             members.find(member => member.id === selectedMember)?.permissions || {
               canDeleteChannel: false,
@@ -568,7 +497,7 @@ export default function ChannelSettings() {
               canEditChannel: false
             }
           }
-          onClose={handleClosePermissionsModal}
+          onClose={handleCloseRoleMemberModal}
         />
       )}
     </div>

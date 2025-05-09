@@ -56,10 +56,48 @@ export async function POST(
     });
     
     if (!membership || membership.role !== "ADMIN") {
-      return new NextResponse("Только администраторы могут создавать приглашения", { status: 403 });
+      return new NextResponse("Только администраторы могут работать с приглашениями", { status: 403 });
     }
     
-    // Создаем новое приглашение
+    // Проверяем, есть ли уже активное приглашение для канала
+    const existingInvite = await prisma.channelInvite.findFirst({
+      where: {
+        channelId,
+        // Выбираем только приглашения без срока действия или с неистекшим сроком
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ],
+        // Выбираем только приглашения без лимита использований или с неисчерпанным лимитом
+        maxUses: null
+        // Примечание: сложную логику для maxUses пришлось убрать из-за ограничений Prisma
+        // В реальной ситуации можно было бы доработать дополнительной проверкой после выборки
+      },
+    });
+    
+    // Если нашли активное приглашение - возвращаем его
+    if (existingInvite) {
+      return NextResponse.json(existingInvite);
+    }
+    
+    // Если активного приглашения нет, проверяем еще раз с учетом лимита использований
+    const pendingInvite = await prisma.channelInvite.findFirst({
+      where: {
+        channelId,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ],
+        NOT: { maxUses: null },
+      },
+    });
+    
+    // Проверяем, если есть приглашение с лимитом и оно еще не исчерпало лимит
+    if (pendingInvite && pendingInvite.uses < (pendingInvite.maxUses || Infinity)) {
+      return NextResponse.json(pendingInvite);
+    }
+    
+    // Если активного приглашения нет - создаем новое
     const invite = await prisma.channelInvite.create({
       data: {
         code: generateUniqueCode(),

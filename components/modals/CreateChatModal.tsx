@@ -53,6 +53,15 @@ export const CreateChatModal = ({
       
       const response = await axios.post(`/api/channels/${channelId}/chats`, values);
       
+      // Отправляем событие о создании нового чата для обновления списка
+      const newChatEvent = new CustomEvent("chat-created", {
+        detail: { 
+          channelId: channelId,
+          chat: response.data 
+        }
+      });
+      window.dispatchEvent(newChatEvent);
+      
       reset();
       router.refresh();
       onClose();

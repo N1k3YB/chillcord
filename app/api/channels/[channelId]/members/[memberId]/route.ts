@@ -115,6 +115,16 @@ export async function PATCH(
       updateData.canEditChannel = false;
     }
     
+    // Если назначаем роль ADMIN, но не переданы разрешения, установим стандартные права
+    if (role === "ADMIN" && !permissions) {
+      // Только владелец может давать право на удаление канала
+      updateData.canDeleteChannel = isOwner ? true : false;
+      // Базовые права администратора
+      updateData.canManageRoles = true;
+      updateData.canRemoveMembers = true;
+      updateData.canEditChannel = true;
+    }
+    
     // Обновляем роль участника
     const updatedMember = await prisma.channelMember.update({
       where: {
