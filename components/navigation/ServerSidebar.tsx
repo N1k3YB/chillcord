@@ -20,18 +20,6 @@ export const ServerSidebar = () => {
           </div>
         </div>
       </div>
-      
-      {/* Информация о пользователе внизу */}
-      <div className="mt-auto p-3 bg-zinc-800">
-        <div className="flex items-center gap-2">
-          <div className="font-medium truncate">
-            <div className="truncate">{session?.user?.name || "Пользователь"}</div>
-            <p className="text-xs text-zinc-400">
-              С нами с недавно
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }; 
