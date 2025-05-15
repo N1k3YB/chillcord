@@ -15,7 +15,7 @@ export async function PATCH(
       return new NextResponse("Unauthorized", { status: 401 });
     }
     
-    const { channelId, memberId } = params;
+    const { channelId, memberId } = await params;
     
     if (!channelId || !memberId) {
       return new NextResponse("Channel ID и Member ID обязательны", { status: 400 });
@@ -142,7 +142,7 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 });
     }
     
-    const { channelId, memberId } = params;
+    const { channelId, memberId } = await params;
     
     if (!channelId || !memberId) {
       return new NextResponse("Channel ID и Member ID обязательны", { status: 400 });

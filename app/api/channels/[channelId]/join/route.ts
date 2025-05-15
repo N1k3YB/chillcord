@@ -15,7 +15,7 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
     
-    const { channelId } = params;
+    const { channelId } = await params;
     
     if (!channelId) {
       return new NextResponse("Channel ID is required", { status: 400 });
